@@ -1,0 +1,98 @@
+---
+title: "Practical Machine Learning Course Project Write up"
+author: "Coursera Student"
+---
+
+This write-up describes the process by which I used a random forests algorithm to classify whether participants engaged in weightlifting exercises were doing the task correctly (CLASS A) or incorrectly (CLASSES B-E, assigned based on specific deficiencies in task performance. For more information regarding the data, please visit the Human Activity Recognition Website at:
+http://groupware.les.inf.puc-rio.br/har
+
+Set working directory, seed, and load caret library
+```{r,results='hide'}
+setwd("C:/Users/wein0339/Desktop/Dropbox/Coursera/Machine Learning")
+library(caret)
+set.seed(240)
+```
+
+Import training and test data from provided data sets
+```{r}
+training<-read.csv("pml-training.csv",na.strings=c("NA", "#DIV/0!",""))
+test<-read.csv("pml-testing.csv",na.strings=c("NA", "#DIV/0!"))
+```
+
+A brief exploration of the data reveals a training set with 160 variables and
+19,622 observations. To reduce the size, I eliminated variables in which 99% or more of the values were missing, as well as identification variables which would not be usable by the classifier.
+
+The new subsetted training set has 53 variables.
+
+```{r,results='hide'}
+str(training)
+x<-as.vector(colSums(!is.na(training))/nrow(training))
+training.sub<-subset(training, select = x>.99)
+names(training.sub)
+training.sub<-subset(training.sub, select = 8:ncol(training.sub))
+str(training.sub)
+```
+
+Due to computational limitations, I opted to make a smaller data subset comprised of 30% of the existing cases in the training set.
+
+```{r}
+sample <- createDataPartition(y=training.sub$classe, p=0.30, list=FALSE)
+training.sub <- training.sub[sample,]
+```
+
+To further expedite processing time, I utilized a cross validation method and limited the number of sampling folds. 
+
+```{r,}
+training.controls<- trainControl(method = "cv", number = 3)
+model.1 <- train(classe~.,data=training.sub,method="rf",prox=TRUE,trControl = training.controls)
+```
+
+Next, I evaluated the overall performance of the model in terms of its ability to correctly classify the classe variable.
+
+```{r}
+model.1
+model.1$results
+model.1$finalModel
+```
+
+These results indicate an in-sample error rate of 1.99%. This estimate will increase when predicting over the test set, which not used in model specification. Nevertheless, the 2% error rate is seemingly acceptable, and the difference in the cross-validated trees was negligible, ranging from 
+.963 to the best version, .972. 
+
+Given this estimate, I am conservatively estimating that the model will accurately classify 95% of the cases in the test set (n=20) for a total of *at least* 19 correct.
+
+Before making predictions with the test set, the same data transformations performed above are required.
+
+```{r,results='hide'}
+test.sub<-subset(test, select = x>.99)
+names(test.sub)
+test.sub<-subset(test.sub, select = 8:ncol(test.sub))
+str(test.sub)
+```
+
+Finally, I utilized the model specified with the training data, to predict values on the unused test data. To avoid publishing a completed answer set, a table of the counted classes is found below.
+
+```{r}
+predictions<-predict(model.1,newdata = test.sub)
+table(predictions)
+```
+
+The following code was provided by Coursera instructors to expedite file submission process.
+
+```{r}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+
+pml_write_files(predictions)
+```
+
+
+When submitted, this model produced accurate results for **100%** (20/20) of the cases in the test set. Ultimately, this proved to be a highly effective algorithm and the model was well fitted to the data.
+
+
+
+
